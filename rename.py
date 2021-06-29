@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/Users/ktabrizi/.pyenv/versions/3.9.4/bin/python
 
 # imports
-import datetime, os, subprocess, sys
+import datetime, os, subprocess, sys, tqdm
 
 # redirect output to fifo (read using `tail -f debug.fifo`)
 debug_fifo_path = os.path.join(os.path.split(sys.argv[0])[0], "debug.fifo")
@@ -30,42 +30,47 @@ def get_content_creation_metadata(path):
 # track renaming
 rename = dict()
 
-# loop through directories
-for dir_path, file_names in files:
-    # loop through files
-    for file_name in file_names:
-        # determine extension and skip if unfamiliar
-        ext = os.path.splitext(file_name)[-1].lower()
-        extensions = '.aae.heic.jpg.jpeg.mov.mp4.png'
-        if ext not in extensions: continue
+# configure tqdm progress bar
+with tqdm.tqdm(total=sum(len(f) for d, f in files), file=sys.stdout) as progress:
+    # loop through directories
+    for dir_path, file_names in tqdm.tqdm(files, leave=False):
+        # loop through files
+        for file_name in tqdm.tqdm(file_names, leave=False):
+            # immediately update progress
+            progress.update()
 
-        # process file
-        path = os.path.join(dir_path, file_name.lower()) # get file path
-        stats = os.stat(path) # get generic file stats
-        creation = get_content_creation_metadata(path)
+            # determine extension and skip if unfamiliar
+            ext = os.path.splitext(file_name)[-1].lower()
+            extensions = '.aae.heic.jpg.jpeg.mov.mp4.png'
+            if ext not in extensions: continue
 
-        # choose the shortest of the creation and modification times
-        time = datetime.datetime.fromtimestamp(sorted([creation, stats.st_ctime, stats.st_mtime])[0])
+            # process file
+            path = os.path.join(dir_path, file_name.lower()) # get file path
+            stats = os.stat(path) # get generic file stats
+            creation = get_content_creation_metadata(path)
 
-        # create new name from time (e.g. 2017-01-01 00.04.58.jpg)
-        name = time.strftime("%Y-%m-%d %H.%M.%S")
+            # choose the shortest of the creation and modification times
+            time = datetime.datetime.fromtimestamp(sorted([creation, stats.st_ctime, stats.st_mtime])[0])
 
-        # complain if time suspiciously old
-        if time < datetime.datetime.fromisoformat('2000-01-01'):
-            raise RuntimeError(f"'{path}' is suspiciously old ('{name}')...")
+            # create new name from time (e.g. 2017-01-01 00.04.58.jpg)
+            name = time.strftime("%Y-%m-%d %H.%M.%S")
 
-        # initialize new name
-        new_path = os.path.join(dir_path, name+ext)
-        if path == new_path: continue # skip if already named correctly
+            # complain if time suspiciously old
+            if time < datetime.datetime.fromisoformat('2000-01-01'):
+                raise RuntimeError(f"'{path}' is suspiciously old ('{name}')...")
 
-        # while file exists, update counter and rename
-        counter = 0
-        while os.path.exists(new_path) or new_path in rename:
-            counter += 1
-            new_path = os.path.join(dir_path, name+f' ({counter})'+ext)
+            # initialize new name
+            new_path = os.path.join(dir_path, name+ext)
+            if path == new_path: continue # skip if already named correctly
 
-        # rename file
-        rename[path] = new_path
+            # while file exists, update counter and rename
+            counter = 0
+            while os.path.exists(new_path) or new_path in rename:
+                counter += 1
+                new_path = os.path.join(dir_path, name+f' ({counter})'+ext)
+
+            # rename file
+            rename[path] = new_path
 
 # rename each file in dictionary
 [os.rename(old_path, new_path) for old_path, new_path in rename.items()]
