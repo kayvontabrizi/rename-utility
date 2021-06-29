@@ -1,7 +1,7 @@
 #!/Users/ktabrizi/.pyenv/versions/3.9.4/bin/python
 
 # imports
-import datetime, os, subprocess, sys, tqdm
+import datetime, json, os, subprocess, sys, tempfile, tqdm
 
 # redirect output to fifo (read using `tail -f debug.fifo`)
 debug_fifo_path = os.path.join(os.path.split(sys.argv[0])[0], "debug.fifo")
@@ -40,8 +40,8 @@ with tqdm.tqdm(total=sum(len(f) for d, f in files), file=sys.stdout) as progress
             progress.update()
 
             # determine extension and skip if unfamiliar
-            ext = os.path.splitext(file_name)[-1].lower()
-            extensions = '.aae.heic.jpg.jpeg.mov.mp4.png'
+            ext = file_name.split('.')[-1].lower()
+            extensions = 'aae heic jpg jpeg mov mp4 png'.split()
             if ext not in extensions: continue
 
             # process file
@@ -60,17 +60,26 @@ with tqdm.tqdm(total=sum(len(f) for d, f in files), file=sys.stdout) as progress
                 raise RuntimeError(f"'{path}' is suspiciously old ('{name}')...")
 
             # initialize new name
-            new_path = os.path.join(dir_path, name+ext)
+            new_path = os.path.join(dir_path, name+'.'+ext)
             if path == new_path: continue # skip if already named correctly
 
-            # while file exists, update counter and rename
+            # while file name taken, update counter and rename
             counter = 0
-            while os.path.exists(new_path) or new_path in rename:
+            while os.path.exists(new_path) or new_path in rename.values():
                 counter += 1
-                new_path = os.path.join(dir_path, name+f' ({counter})'+ext)
+                new_path = os.path.join(dir_path, f'{name} ({counter}).{ext}')
 
             # rename file
             rename[path] = new_path
+
+# write rename dictionary to temporary file
+fd, tmp_path = tempfile.mkstemp(suffix='.json')
+with open(fd, 'w') as file:
+    json.dump(rename, file)
+print(f"Renaming dictionary written to '{tmp_path}'.")
+
+# ensure the renaming dictionary does not have redundant output names
+assert len(rename) == len(set(rename.values())), "Some files map to the same name!"
 
 # rename each file in dictionary
 [os.rename(old_path, new_path) for old_path, new_path in rename.items()]
