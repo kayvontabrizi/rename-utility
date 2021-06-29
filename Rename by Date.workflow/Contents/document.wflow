@@ -59,8 +59,18 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string># pass arguments to rename script
-/Users/ktabrizi/Documents/Development/sandbox/python/photo_renaming/rename.py "$@"</string>
+					<string># debugging function
+debug () {
+    osascript -e "display dialog \"$1\""
+}
+
+# get path to rename repo
+service_path=${HOME}/Library/Services
+workflow_path=$(readlink $service_path/"$(ls $service_path | grep Rename)")
+repo_path=$(dirname "$workflow_path")
+
+# pass arguments to rename script
+$repo_path/rename.py "$@"</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
@@ -173,7 +183,7 @@
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>368.000000:649.000000</string>
+				<string>368.000000:360.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>

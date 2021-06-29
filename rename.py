@@ -72,6 +72,11 @@ with tqdm.tqdm(total=sum(len(f) for d, f in files), file=sys.stdout) as progress
             # rename file
             rename[path] = new_path
 
+# quit if no files to rename
+if len(rename) == 0:
+    print("Nothing to rename.")
+    exit()
+
 # write rename dictionary to temporary file
 fd, tmp_path = tempfile.mkstemp(suffix='.json')
 with open(fd, 'w') as file:
