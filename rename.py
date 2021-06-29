@@ -30,7 +30,7 @@ for dir_path, file_names in files:
         if ext not in extensions: continue
 
         # process file
-        path = os.path.join(dir_path, file_name) # get file path
+        path = os.path.join(dir_path, file_name.lower()) # get file path
         stats = os.stat(path) # get generic file stats
 
         # choose the shortest of the creation and modification times
@@ -43,13 +43,15 @@ for dir_path, file_names in files:
         if time < datetime.datetime.fromisoformat('2000-01-01'):
             raise RuntimeError(f"'{path}' is suspiciously old ('{name}')...")
 
+        # initialize new name
+        new_path = os.path.join(dir_path, name+ext)
+        if path == new_path: continue # skip if already named correctly
+
         # while file exists, update counter and rename
         counter = 0
-        new_path = path
         while os.path.exists(new_path) or new_path in rename:
-            counter_str = f' ({counter})' if counter > 0 else ''
-            new_path = os.path.join(dir_path, name+counter_str+ext)
             counter += 1
+            new_path = os.path.join(dir_path, name+f' ({counter})'+ext)
 
         # rename file
         rename[path] = new_path
