@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # imports
-import datetime, os, sys
+import datetime, os, subprocess, sys
 
 # redirect output to fifo (read using `tail -f debug.fifo`)
 debug_fifo_path = os.path.join(os.path.split(sys.argv[0])[0], "debug.fifo")
@@ -16,6 +16,16 @@ files = set()
 for path in sys.argv[1:]:
     if os.path.isfile(path): files.add((os.path.dirname(path), (os.path.basename(path),)))
     elif os.path.isdir(path): files.update({(root, tuple(sorted(file_names))) for root, dir_path, file_names in os.walk(path)})
+
+# retrieve content creation data from macOS metadata
+def get_content_creation_metadata(path):
+    # get datetime from mdls
+    time_str = subprocess.check_output(
+        ["mdls", "-raw", "-n", "kMDItemContentCreationDate", path]
+    ).decode().strip()
+
+    # process into timestamp and return
+    return datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S %z").timestamp()
 
 # track renaming
 rename = dict()
@@ -32,9 +42,10 @@ for dir_path, file_names in files:
         # process file
         path = os.path.join(dir_path, file_name.lower()) # get file path
         stats = os.stat(path) # get generic file stats
+        creation = get_content_creation_metadata(path)
 
         # choose the shortest of the creation and modification times
-        time = datetime.datetime.fromtimestamp(sorted([stats.st_ctime, stats.st_mtime])[0])
+        time = datetime.datetime.fromtimestamp(sorted([creation, stats.st_ctime, stats.st_mtime])[0])
 
         # create new name from time (e.g. 2017-01-01 00.04.58.jpg)
         name = time.strftime("%Y-%m-%d %H.%M.%S")
@@ -58,3 +69,6 @@ for dir_path, file_names in files:
 
 # rename each file in dictionary
 [os.rename(old_path, new_path) for old_path, new_path in rename.items()]
+
+# report success
+print(f"Renamed {len(rename)} file(s).")
